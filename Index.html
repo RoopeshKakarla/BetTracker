@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BetTracker INR</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #1a1d27; --card2: #21253a;
+    --border: #2e3248; --accent: #6c63ff; --accent2: #a78bfa;
+    --green: #22c55e; --red: #ef4444; --yellow: #f59e0b;
+    --blue: #3b82f6; --text: #f1f5f9; --muted: #64748b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', Arial, sans-serif; min-height: 100vh; }
+
+/* Loading overlay */
+#loader {
+position: fixed; inset: 0; background: var(–bg);
+display: flex; flex-direction: column; align-items: center; justify-content: center;
+z-index: 999; gap: 16px;
+}
+.spinner { width: 40px; height: 40px; border: 3px solid var(–border); border-top-color: var(–accent2); border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.load-txt { color: var(–muted); font-size: 13px; letter-spacing: 1px; }
+
+/* Top bar */
+.topbar { background: var(–card); border-bottom: 1px solid var(–border); padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 54px; position: sticky; top: 0; z-index: 50; }
+.logo { font-size: 20px; font-weight: 800; }
+.logo span { color: var(–accent2); }
+.topbar-r { display: flex; align-items: center; gap: 12px; }
+#clock { font-size: 12px; color: var(–muted); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(–green); }
+.dot.y { background: var(–yellow); animation: pulse 1s infinite; }
+.dot.r { background: var(–red); }
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:.3} }
+
+/* Tabs */
+.tabs { display: flex; background: var(–card); border-bottom: 1px solid var(–border); padding: 0 24px; }
+.tab { padding: 13px 20px; font-size: 13px; color: var(–muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all .2s; user-select: none; }
+.tab.active { color: var(–accent2); border-bottom-color: var(–accent2); font-weight: 600; }
+.tab:hover:not(.active) { color: var(–text); }
+
+/* Pages */
+.page { display: none; padding: 22px 24px; }
+.page.active { display: block; }
+
+/* Summary cards */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.card { background: var(–card); border: 1px solid var(–border); border-radius: 12px; padding: 18px 16px; position: relative; overflow: hidden; }
+.card::before { content:’’; position:absolute; top:0; left:0; right:0; height:3px; background: var(–accent); border-radius:12px 12px 0 0; }
+.card.g::before{background:var(–green);} .card.r::before{background:var(–red);} .card.y::before{background:var(–yellow);} .card.b::before{background:var(–blue);}
+.card-lbl { font-size: 10px; color: var(–muted); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 8px; }
+.card-val { font-size: 26px; font-weight: 800; line-height: 1; }
+.card-sub { font-size: 11px; color: var(–muted); margin-top: 5px; }
+.green{color:var(–green);} .red{color:var(–red);} .yellow{color:var(–yellow);} .blue{color:var(–blue);}
+
+/* Form */
+.form-wrap { background: var(–card); border: 1px solid var(–border); border-radius: 14px; padding: 22px; max-width: 480px; }
+.form-title { font-size: 15px; font-weight: 700; margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
+.form-title i { width: 4px; height: 18px; background: var(–accent2); border-radius: 2px; display: inline-block; }
+.frow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.field { margin-bottom: 12px; }
+.field label { display: block; font-size: 11px; color: var(–muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+.field input { width: 100%; background: var(–card2); border: 1px solid var(–border); color: var(–text); padding: 10px 12px; border-radius: 8px; font-size: 14px; outline: none; transition: border-color .2s; }
+.field input:focus { border-color: var(–accent2); }
+.field input::placeholder { color: var(–muted); }
+
+.calc-box { background: linear-gradient(135deg,rgba(108,99,255,.1),rgba(167,139,250,.08)); border: 1px solid rgba(108,99,255,.3); border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; display: none; }
+.calc-box.show { display: block; }
+.calc-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+.calc-row:last-child { margin: 0; }
+.calc-lbl { color: var(–muted); } .calc-val { color: var(–accent2); font-weight: 600; }
+
+.add-btn { width: 100%; padding: 12px; background: var(–accent); color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; letter-spacing: 1px; transition: background .2s, transform .1s; }
+.add-btn:hover { background: #7c75ff; transform: translateY(-1px); }
+.add-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+/* Table */
+.tbl-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid var(–border); }
+table { width: 100%; border-collapse: collapse; background: var(–card); }
+thead tr { background: var(–card2); }
+th { padding: 11px 13px; font-size: 11px; color: var(–muted); text-align: left; letter-spacing: 1px; text-transform: uppercase; white-space: nowrap; }
+td { padding: 11px 13px; font-size: 13px; border-bottom: 1px solid var(–border); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: rgba(108,99,255,.05); }
+
+.badge { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+.badge-win     { background: rgba(34,197,94,.15);  color: var(–green); }
+.badge-loss    { background: rgba(239,68,68,.15);  color: var(–red); }
+.badge-pending { background: rgba(59,130,246,.15); color: var(–blue); }
+.badge-void    { background: rgba(100,116,139,.15);color: var(–muted); }
+
+.mono { font-family: ‘Courier New’, monospace; }
+.muted-txt { color: var(–muted); }
+
+.act-btn { padding: 4px 8px; border-radius: 5px; border: 1px solid var(–border); background: transparent; color: var(–muted); font-size: 11px; cursor: pointer; margin-right: 3px; transition: all .15s; }
+.act-btn:hover { background: var(–card2); color: var(–text); }
+.act-btn.w:hover { border-color: var(–green); color: var(–green); background: rgba(34,197,94,.1); }
+.act-btn.l:hover { border-color: var(–red);   color: var(–red);   background: rgba(239,68,68,.1); }
+.act-btn.d:hover { border-color: var(–red);   color: var(–red); }
+
+/* Daily */
+.day-block { background: var(–card); border: 1px solid var(–border); border-radius: 12px; margin-bottom: 14px; overflow: hidden; }
+.day-head { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px; background: var(–card2); border-bottom: 1px solid var(–border); flex-wrap: wrap; gap: 10px; }
+.day-date { font-weight: 700; font-size: 14px; }
+.day-pills { display: flex; gap: 18px; }
+.pill-val { font-size: 15px; font-weight: 700; text-align: center; }
+.pill-lbl { font-size: 10px; color: var(–muted); text-transform: uppercase; letter-spacing: .5px; text-align: center; }
+
+/* Chart */
+.chart-box { background: var(–card); border: 1px solid var(–border); border-radius: 12px; padding: 18px; margin-top: 22px; }
+.chart-title { font-size: 12px; font-weight: 600; color: var(–muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; }
+
+.empty-msg { text-align: center; padding: 48px; color: var(–muted); font-size: 13px; }
+
+/* Toast notification */
+#toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(–card2); border: 1px solid var(–border); color: var(–text); padding: 10px 20px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 999; }
+#toast.show { opacity: 1; }
+</style>
+
+</head>
+<body>
+
+<div id="loader">
+  <div class="spinner"></div>
+  <div class="load-txt">Connecting to database…</div>
+</div>
+
+<div id="toast"></div>
+
+<div class="topbar">
+  <div class="logo">Bet<span>Track</span></div>
+  <div class="topbar-r">
+    <div id="dot" class="dot" title="Database status"></div>
+    <div id="clock"></div>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="go('overview')">📊 Overview</div>
+  <div class="tab" onclick="go('daily')">📅 Daily</div>
+  <div class="tab" onclick="go('history')">📋 History</div>
+</div>
+
+<!-- OVERVIEW -->
+
+<div class="page active" id="page-overview">
+  <div class="cards">
+    <div class="card b">
+      <div class="card-lbl">Total Bets</div>
+      <div class="card-val blue" id="c-total">0</div>
+      <div class="card-sub" id="c-pend">0 pending</div>
+    </div>
+    <div class="card g">
+      <div class="card-lbl">Total P&amp;L</div>
+      <div class="card-val" id="c-pnl">₹0</div>
+      <div class="card-sub" id="c-roi">0% ROI</div>
+    </div>
+    <div class="card y">
+      <div class="card-lbl">Win Rate</div>
+      <div class="card-val yellow" id="c-wr">0%</div>
+      <div class="card-sub" id="c-wl">0W / 0L</div>
+    </div>
+    <div class="card">
+      <div class="card-lbl">Total Staked</div>
+      <div class="card-val" id="c-staked">₹0</div>
+      <div class="card-sub" id="c-odds">Avg odds: —</div>
+    </div>
+    <div class="card g">
+      <div class="card-lbl">Best Win</div>
+      <div class="card-val green" id="c-bwin">₹0</div>
+      <div class="card-sub" id="c-bwin-n">—</div>
+    </div>
+    <div class="card r">
+      <div class="card-lbl">Worst Loss</div>
+      <div class="card-val red" id="c-bloss">₹0</div>
+      <div class="card-sub" id="c-bloss-n">—</div>
+    </div>
+  </div>
+
+  <div class="form-wrap">
+    <div class="form-title"><i></i> Add New Bet</div>
+    <div class="field">
+      <label>Bet Name</label>
+      <input id="f-name" type="text" placeholder="e.g. CSK vs MI — CSK Win" />
+    </div>
+    <div class="frow">
+      <div class="field">
+        <label>Decimal Odds</label>
+        <input id="f-odds" type="number" placeholder="2.50" step="0.01" min="1.01" oninput="calcPreview()" />
+      </div>
+      <div class="field">
+        <label>Stake (₹)</label>
+        <input id="f-stake" type="number" placeholder="500" step="1" min="1" oninput="calcPreview()" />
+      </div>
+    </div>
+    <div class="calc-box" id="calc-box">
+      <div class="calc-row"><span class="calc-lbl">Potential Return</span><span class="calc-val" id="p-ret">—</span></div>
+      <div class="calc-row"><span class="calc-lbl">Potential Profit</span><span class="calc-val" id="p-prof">—</span></div>
+      <div class="calc-row"><span class="calc-lbl">Implied Probability</span><span class="calc-val" id="p-prob">—</span></div>
+    </div>
+    <button class="add-btn" id="add-btn" onclick="addBet()">＋ ADD BET</button>
+  </div>
+
+  <div class="chart-box" id="chart-box" style="display:none;">
+    <div class="chart-title">Cumulative P&amp;L</div>
+    <div style="position:relative;height:130px;"><canvas id="pnl-chart"></canvas></div>
+  </div>
+</div>
+
+<!-- DAILY -->
+
+<div class="page" id="page-daily">
+  <div id="daily-body"><div class="empty-msg">No bets yet.</div></div>
+</div>
+
+<!-- HISTORY -->
+
+<div class="page" id="page-history">
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr><th>#</th><th>Bet Name</th><th>Odds</th><th>Stake ₹</th><th>Return ₹</th><th>P&amp;L ₹</th><th>Status</th><th>Date</th><th>Actions</th></tr>
+      </thead>
+      <tbody id="hist-body"><tr><td colspan="9" class="empty-msg">Loading…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+<script>
+  // ── Supabase credentials — pre-filled with your project details ──────────
+  const SUPA_URL = "https://tnluuznhhktkqjkuvevj.supabase.co";
+  const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRubHV1em5oaGt0a3Fqa3V2ZXZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzMzg0MTUsImV4cCI6MjA4ODkxNDQxNX0.oycVi6D2n-AXhKldP-1Z7dG5Ybt02L3Mk_4BeqsD7nU";
+
+  // ── Base headers sent with every Supabase REST request ───────────────────
+  // Supabase exposes your database as a REST API — we just call it with fetch()
+  const HEADERS = {
+    "Content-Type": "application/json",
+    "apikey": SUPA_KEY,
+    "Authorization": "Bearer " + SUPA_KEY,
+    // This header tells Supabase to return the saved row after INSERT/UPDATE
+    "Prefer": "return=representation"
+  };
+
+  // ── In-memory bets array — populated fresh from Supabase on every load ───
+  let bets = [];
+  let pnlChart = null;
+
+  // ── Clock ────────────────────────────────────────────────────────────────
+  setInterval(() => {
+    document.getElementById('clock').textContent =
+      new Date().toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  }, 1000);
+
+  // ── Sync dot helpers — visual indicator of database connection status ────
+  const dotEl = () => document.getElementById('dot');
+  const setSyncing = () => dotEl().className = 'dot y';
+  const setSynced  = () => dotEl().className = 'dot';
+  const setError   = () => dotEl().className = 'dot r';
+
+  // ── Toast notification ───────────────────────────────────────────────────
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2500);
+  }
+
+  // ── Tab switching ────────────────────────────────────────────────────────
+  function go(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelector(`.tab[onclick="go('${name}')"]`).classList.add('active');
+    document.getElementById('page-' + name).classList.add('active');
+  }
+
+  // ── Live calc preview ────────────────────────────────────────────────────
+  function calcPreview() {
+    const o = parseFloat(document.getElementById('f-odds').value);
+    const s = parseFloat(document.getElementById('f-stake').value);
+    const box = document.getElementById('calc-box');
+    if (o > 1 && s > 0) {
+      document.getElementById('p-ret').textContent  = '₹' + (o * s).toFixed(2);
+      document.getElementById('p-prof').textContent = '₹' + ((o-1)*s).toFixed(2);
+      document.getElementById('p-prob').textContent = (100/o).toFixed(1) + '%';
+      box.classList.add('show');
+    } else {
+      box.classList.remove('show');
+    }
+  }
+
+  // ── LOAD all bets from Supabase on startup ───────────────────────────────
+  // We call the REST API directly — no SDK needed, just fetch()
+  async function loadBets() {
+    try {
+      // GET /rest/v1/bets?order=created_at.desc  → returns all rows newest first
+      const res = await fetch(
+        `${SUPA_URL}/rest/v1/bets?order=created_at.desc`,
+        { headers: HEADERS }
+      );
+      if (!res.ok) throw new Error(await res.text());
+      bets = await res.json();
+      setSynced();
+      renderAll();
+    } catch(e) {
+      setError();
+      console.error('Load error:', e);
+      toast('⚠️ Could not connect to database');
+    } finally {
+      document.getElementById('loader').style.display = 'none';
+    }
+  }
+
+  // ── ADD bet — POST a new row to Supabase ─────────────────────────────────
+  async function addBet() {
+    const name  = document.getElementById('f-name').value.trim();
+    const odds  = parseFloat(document.getElementById('f-odds').value);
+    const stake = parseFloat(document.getElementById('f-stake').value);
+
+    if (!name)       { toast('Enter a bet name.'); return; }
+    if (!(odds > 1)) { toast('Odds must be greater than 1.'); return; }
+    if (!(stake > 0)){ toast('Enter a valid stake.'); return; }
+
+    const btn = document.getElementById('add-btn');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    setSyncing();
+
+    const payload = {
+      name, odds, stake,
+      ret:    parseFloat((odds * stake).toFixed(2)),
+      prof:   parseFloat(((odds-1)*stake).toFixed(2)),
+      status: 'pending',
+      pnl:    0,
+      date:   new Date().toISOString().split('T')[0]
+      // created_at is set automatically by the database default
+    };
+
+    try {
+      const res = await fetch(`${SUPA_URL}/rest/v1/bets`, {
+        method: 'POST',
+        headers: HEADERS,
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const [saved] = await res.json();
+      // Prepend to our local array so UI updates instantly without a full reload
+      bets.unshift(saved);
+      setSynced();
+      renderAll();
+      toast('✅ Bet saved!');
+      // Clear form
+      ['f-name','f-odds','f-stake'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('calc-box').classList.remove('show');
+    } catch(e) {
+      setError(); toast('❌ Error saving: ' + e.message);
+    } finally {
+      btn.disabled = false; btn.textContent = '＋ ADD BET';
+    }
+  }
+
+  // ── SETTLE bet — PATCH the status and pnl fields in Supabase ─────────────
+  async function settle(id, status) {
+    const b = bets.find(b => b.id === id);
+    if (!b) return;
+    setSyncing();
+    const pnl = status === 'win' ? b.prof : status === 'loss' ? -b.stake : 0;
+    try {
+      // PATCH /rest/v1/bets?id=eq.{id}  → updates only the matching row
+      const res = await fetch(`${SUPA_URL}/rest/v1/bets?id=eq.${id}`, {
+        method: 'PATCH',
+        headers: HEADERS,
+        body: JSON.stringify({ status, pnl })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      // Update our local copy so UI reflects the change immediately
+      b.status = status; b.pnl = pnl;
+      setSynced(); renderAll();
+      toast(status === 'win' ? '🎉 Win recorded!' : status === 'loss' ? '📉 Loss recorded.' : '↩️ Void recorded.');
+    } catch(e) {
+      setError(); toast('❌ Error updating: ' + e.message);
+    }
+  }
+
+  // ── DELETE bet — DELETE the row from Supabase ─────────────────────────────
+  async function del(id) {
+    if (!confirm('Delete this bet?')) return;
+    setSyncing();
+    try {
+      const res = await fetch(`${SUPA_URL}/rest/v1/bets?id=eq.${id}`, {
+        method: 'DELETE', headers: HEADERS
+      });
+      if (!res.ok) throw new Error(await res.text());
+      bets = bets.filter(b => b.id !== id);
+      setSynced(); renderAll(); toast('🗑️ Bet deleted.');
+    } catch(e) {
+      setError(); toast('❌ Error deleting: ' + e.message);
+    }
+  }
+
+  // ── Render everything ────────────────────────────────────────────────────
+  function renderAll() { renderOverview(); renderDaily(); renderHistory(); }
+
+  function renderOverview() {
+    const settled = bets.filter(b => b.status==='win'||b.status==='loss');
+    const wins    = bets.filter(b => b.status==='win');
+    const losses  = bets.filter(b => b.status==='loss');
+    const pending = bets.filter(b => b.status==='pending');
+    const pnl     = settled.reduce((s,b)=>s+b.pnl,0);
+    const staked  = settled.reduce((s,b)=>s+b.stake,0);
+    const roi     = staked>0?(pnl/staked*100):0;
+    const wr      = settled.length>0?(wins.length/settled.length*100):0;
+    const avgO    = bets.length>0?bets.reduce((s,b)=>s+b.odds,0)/bets.length:0;
+    const bw      = [...wins].sort((a,b)=>b.pnl-a.pnl)[0];
+    const bl      = [...losses].sort((a,b)=>a.pnl-b.pnl)[0];
+
+    s('c-total', bets.length); s('c-pend', pending.length+' pending');
+    sVal('c-pnl', pnl, true);
+    s('c-roi', (roi>=0?'+':'')+roi.toFixed(1)+'% ROI');
+    s('c-wr', wr.toFixed(0)+'%'); s('c-wl', wins.length+'W / '+losses.length+'L');
+    s('c-staked','₹'+fmt(staked)); s('c-odds','Avg odds: '+(avgO>0?avgO.toFixed(2):'—'));
+    s('c-bwin', bw?'₹'+fmt(bw.pnl):'₹0'); s('c-bwin-n', bw?trunc(bw.name):'—');
+    s('c-bloss',bl?'₹'+fmt(Math.abs(bl.pnl)):'₹0'); s('c-bloss-n',bl?trunc(bl.name):'—');
+    renderChart(settled);
+  }
+
+  function renderChart(settled) {
+    const sorted = [...settled].sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+    const wrap = document.getElementById('chart-box');
+    if (sorted.length < 2) { wrap.style.display='none'; return; }
+    wrap.style.display = 'block';
+    let cum=0; const labels=[],data=[];
+    sorted.forEach(b=>{ cum+=b.pnl; labels.push(b.date); data.push(parseFloat(cum.toFixed(2))); });
+    const pos = data[data.length-1]>=0;
+    const col = pos?'#22c55e':'#ef4444';
+    const ctx = document.getElementById('pnl-chart').getContext('2d');
+    if (pnlChart) pnlChart.destroy();
+    pnlChart = new Chart(ctx, {
+      type:'line',
+      data:{ labels, datasets:[{ data, borderColor:col, backgroundColor:pos?'rgba(34,197,94,.1)':'rgba(239,68,68,.1)', borderWidth:2.5, fill:true, tension:0.35, pointRadius:data.length<=15?4:2, pointBackgroundColor:col }] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false}, tooltip:{ backgroundColor:'#21253a', borderColor:'#2e3248', borderWidth:1, titleColor:'#64748b', bodyColor:col, callbacks:{label:c=>(c.raw>=0?'+':'')+'₹'+c.raw.toFixed(2)} } }, scales:{ x:{display:false}, y:{grid:{color:'rgba(46,50,72,.8)'}, ticks:{color:'#64748b',font:{size:11},callback:v=>'₹'+v}} } }
+    });
+  }
+
+  function renderDaily() {
+    const cont = document.getElementById('daily-body');
+    const groups = {};
+    bets.forEach(b=>{ (groups[b.date]=groups[b.date]||[]).push(b); });
+    const dates = Object.keys(groups).sort((a,b)=>b.localeCompare(a));
+    if (!dates.length) { cont.innerHTML='<div class="empty-msg">No bets yet.</div>'; return; }
+    cont.innerHTML = dates.map(date=>{
+      const db      = groups[date];
+      const settled = db.filter(b=>b.status==='win'||b.status==='loss');
+      const wins    = db.filter(b=>b.status==='win');
+      const dayPnl  = settled.reduce((s,b)=>s+b.pnl,0);
+      const wr      = settled.length>0?(wins.length/settled.length*100).toFixed(0)+'%':'—';
+      const pc      = dayPnl>0?'green':dayPnl<0?'red':'';
+      const rows    = db.map(b=>`<tr>
+        <td>${esc(b.name)}</td>
+        <td class="mono">${b.odds.toFixed(2)}</td>
+        <td class="mono">₹${fmt(b.stake)}</td>
+        <td>${b.status==='pending'?'<span class="muted-txt">—</span>':`<span class="${b.pnl>=0?'green':'red'}">${b.pnl>=0?'+':''}₹${fmt(b.pnl)}</span>`}</td>
+        <td><span class="badge badge-${b.status}">${b.status}</span></td>
+      </tr>`).join('');
+      return `<div class="day-block">
+        <div class="day-head">
+          <div class="day-date">📅 ${fmtDate(date)}</div>
+          <div class="day-pills">
+            <div><div class="pill-val blue">${db.length}</div><div class="pill-lbl">Bets</div></div>
+            <div><div class="pill-val ${pc}">${dayPnl>=0?'+':''}₹${fmt(dayPnl)}</div><div class="pill-lbl">P&L</div></div>
+            <div><div class="pill-val yellow">${wr}</div><div class="pill-lbl">Win%</div></div>
+          </div>
+        </div>
+        <div class="tbl-wrap" style="border:none;border-radius:0;">
+          <table><thead><tr><th>Bet</th><th>Odds</th><th>Stake</th><th>P&L</th><th>Status</th></tr></thead>
+          <tbody>${rows}</tbody></table>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderHistory() {
+    const tbody = document.getElementById('hist-body');
+    if (!bets.length) { tbody.innerHTML='<tr><td colspan="9" class="empty-msg">No bets yet.</td></tr>'; return; }
+    tbody.innerHTML = bets.map((b,i)=>{
+      const pHtml = b.status==='pending'
+        ?'<span class="muted-txt">—</span>'
+        :`<span class="${b.pnl>=0?'green':'red'}">${b.pnl>=0?'+':''}₹${fmt(b.pnl)}</span>`;
+      const acts = b.status==='pending'
+        ?`<button class="act-btn w" onclick="settle('${b.id}','win')">WIN</button>
+          <button class="act-btn l" onclick="settle('${b.id}','loss')">LOSS</button>
+          <button class="act-btn"   onclick="settle('${b.id}','void')">VOID</button>`
+        :`<button class="act-btn"   onclick="settle('${b.id}','pending')">RESET</button>`;
+      return `<tr>
+        <td class="muted-txt mono">${bets.length-i}</td>
+        <td>${esc(b.name)}</td>
+        <td class="mono">${b.odds.toFixed(2)}</td>
+        <td class="mono">₹${fmt(b.stake)}</td>
+        <td class="mono">₹${fmt(b.ret)}</td>
+        <td>${pHtml}</td>
+        <td><span class="badge badge-${b.status}">${b.status}</span></td>
+        <td class="muted-txt" style="font-size:12px;">${fmtDate(b.date)}</td>
+        <td>${acts}<button class="act-btn d" onclick="del('${b.id}')">✕</button></td>
+      </tr>`;
+    }).join('');
+  }
+
+  // ── Tiny helpers ─────────────────────────────────────────────────────────
+  function s(id,v)  { document.getElementById(id).textContent=v; }
+  function sVal(id,n,sign) {
+    const el=document.getElementById(id);
+    el.textContent=(sign&&n>0?'+':'')+'₹'+fmt(n);
+    el.className='card-val '+(n>0?'green':n<0?'red':'');
+  }
+  function fmt(n)    { return Math.abs(n)>=1000?Number(n.toFixed(0)).toLocaleString('en-IN'):parseFloat(n.toFixed(2)).toString(); }
+  function esc(s)    { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function trunc(s,n=22){ return s.length>n?s.slice(0,n)+'…':s; }
+  function fmtDate(d){ if(!d)return'—'; return new Date(d+'T00:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}); }
+
+  // ── Kick everything off ───────────────────────────────────────────────────
+  loadBets();
+</script>
+
+</body>
+</html>
